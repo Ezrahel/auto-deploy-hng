@@ -1,0 +1,36 @@
+version: '3.9'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ${REPO_NAME:-app}_container
+    restart: always
+    ports:
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+    environment:
+      - NODE_ENV=production
+      # Add other environment variables here
+      # - DATABASE_URL=${DATABASE_URL}
+      # - API_KEY=${API_KEY}
+    volumes:
+      - .:/usr/src/app
+    command: >
+      sh -c "echo 'Starting app on port ${APP_PORT:-8000}' &&
+             npm run start || python3 app.py || ./main"
+
+  nginx:
+    image: nginx:alpine
+    container_name: ${REPO_NAME:-app}_nginx
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
