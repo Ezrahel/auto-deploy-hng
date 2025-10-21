@@ -278,7 +278,13 @@ ENDSSH
 deploy_application() {
     log_info "=== Step 6: Deploying Dockerized Application ==="
     
-    local remote_dir="/home/$SSH_USER/$REPO_NAME"
+    # Determine correct home directory
+    local remote_dir
+    if [[ "$SSH_USER" == "root" ]]; then
+        remote_dir="/root/$REPO_NAME"
+    else
+        remote_dir="/home/$SSH_USER/$REPO_NAME"
+    fi
     
     log_info "Creating remote directory..."
     ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" "mkdir -p $remote_dir" || error_exit "Failed to create remote directory" 60
@@ -313,9 +319,12 @@ ENDSSH
         log_info "Building and starting containers with Docker Compose..."
         ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to deploy with Docker Compose" 62
             cd $remote_dir
-            docker-compose build
-            docker-compose up -d
-            sleep 5
+            echo "Building images..."
+            docker-compose build --no-cache
+            echo "Starting containers..."
+            docker-compose up -d --force-recreate
+            sleep 10
+            echo "Container status:"
             docker-compose ps
 ENDSSH
     else
@@ -327,19 +336,30 @@ ENDSSH
         
         log_info "Running Docker container..."
         ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to run Docker container" 64
-            docker run -d --name $REPO_NAME -p $APP_PORT:$APP_PORT $REPO_NAME:latest
+            docker run -d --name $REPO_NAME --restart unless-stopped -p $APP_PORT:$APP_PORT $REPO_NAME:latest
             sleep 5
             docker ps -a --filter "name=$REPO_NAME"
 ENDSSH
     fi
     
-    log_info "Checking container logs..."
+    log_info "Waiting for containers to start..."
+    sleep 10
+    
+    log_info "Checking container status..."
     ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" bash << ENDSSH
         cd $remote_dir
+        echo "=== Container Status ==="
         if [[ "$USE_COMPOSE" == "true" ]]; then
-            docker-compose logs --tail=20
+            docker-compose ps -a
         else
-            docker logs $REPO_NAME --tail=20
+            docker ps -a --filter "name=$REPO_NAME"
+        fi
+        echo ""
+        echo "=== Container Logs ==="
+        if [[ "$USE_COMPOSE" == "true" ]]; then
+            docker-compose logs --tail=50
+        else
+            docker logs $REPO_NAME --tail=50 2>&1 || echo "No logs available"
         fi
 ENDSSH
     
