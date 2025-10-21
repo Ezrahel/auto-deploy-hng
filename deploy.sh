@@ -116,7 +116,7 @@ collect_parameters() {
     fi
     
     # Application Port
-    read -p "Enter application port (e.g., 80): " APP_PORT
+    read -p "Enter application port (e.g., 3000): " APP_PORT
     [[ -z "$APP_PORT" ]] && error_exit "Application port cannot be empty" 16
     
     if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]] || [ "$APP_PORT" -lt 1 ] || [ "$APP_PORT" -gt 65535 ]; then
@@ -284,9 +284,22 @@ deploy_application() {
     ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" "mkdir -p $remote_dir" || error_exit "Failed to create remote directory" 60
     
     log_info "Transferring project files to remote server..."
-    cd "$PROJECT_DIR"
-    rsync -avz -e "ssh -i $SSH_KEY_PATH" ./ "$SSH_USER@$SERVER_IP:$remote_dir/"
-    cd -
+    cd "$PROJECT_DIR" || error_exit "Failed to access project directory" 60
+    
+    # Create tarball excluding unwanted files
+    tar czf /tmp/deploy_archive_$.tar.gz --exclude='.git' --exclude='node_modules' --exclude='.env' . || error_exit "Failed to create archive" 60
+    
+    # Transfer tarball
+    scp -i "$SSH_KEY_PATH" -o StrictHostKeyChecking=no /tmp/deploy_archive_$.tar.gz "$SSH_USER@$SERVER_IP:/tmp/" || error_exit "Failed to transfer files" 61
+    
+    # Extract on remote server
+    ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" "cd $remote_dir && tar xzf /tmp/deploy_archive_$.tar.gz && rm /tmp/deploy_archive_$.tar.gz" || error_exit "Failed to extract files" 62
+    
+    # Cleanup local tarball
+    rm -f /tmp/deploy_archive_$.tar.gz
+    
+    cd - > /dev/null
+    
     log_success "Files transferred successfully"
     
     log_info "Stopping existing containers (if any)..."
