@@ -284,8 +284,9 @@ deploy_application() {
     ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" "mkdir -p $remote_dir" || error_exit "Failed to create remote directory" 60
     
     log_info "Transferring project files to remote server..."
-    rsync -avz -e "ssh -i $SSH_KEY_PATH" --exclude '.git' --exclude 'node_modules' --exclude '.env' "$PROJECT_DIR/" "$SSH_USER@$SERVER_IP:$remote_dir/" || error_exit "Failed to transfer files" 61
-    
+    cd "$PROJECT_DIR"
+    rsync -avz -e "ssh -i $SSH_KEY_PATH" ./ "$SSH_USER@$SERVER_IP:$remote_dir/"
+    cd -
     log_success "Files transferred successfully"
     
     log_info "Stopping existing containers (if any)..."
