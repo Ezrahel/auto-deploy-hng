@@ -317,11 +317,11 @@ ENDSSH
     
     if [[ "$USE_COMPOSE" == true ]]; then
         log_info "Building Docker images with Docker Compose..."
-        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes "$SSH_USER@$SERVER_IP" bash << 'ENDSSH' || error_exit "Failed to build with Docker Compose" 62
+        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to build with Docker Compose" 62
             cd $remote_dir
             echo "Building images..."
             timeout 600 docker-compose build --no-cache 2>&1 | tee build.log
-            if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            if [ \${PIPESTATUS[0]} -eq 0 ]; then
                 echo "Build completed successfully"
             else
                 echo "Build failed. Check build.log for details"
@@ -330,7 +330,7 @@ ENDSSH
 ENDSSH
         
         log_info "Starting containers with Docker Compose..."
-        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 "$SSH_USER@$SERVER_IP" bash << 'ENDSSH' || error_exit "Failed to start containers with Docker Compose" 62
+        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to start containers with Docker Compose" 62
             cd $remote_dir
             echo "Starting containers..."
             docker-compose up -d --force-recreate 2>&1
@@ -339,17 +339,17 @@ ENDSSH
         log_info "Waiting for containers to initialize..."
         sleep 10
         
-        ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" bash << 'ENDSSH'
+        ssh -i "$SSH_KEY_PATH" "$SSH_USER@$SERVER_IP" bash << ENDSSH
             cd $remote_dir
             echo "Container status:"
             docker-compose ps
 ENDSSH
     else
         log_info "Building Docker image..."
-        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes "$SSH_USER@$SERVER_IP" bash << 'ENDSSH' || error_exit "Failed to build Docker image" 63
+        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 -o TCPKeepAlive=yes "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to build Docker image" 63
             cd $remote_dir
             timeout 600 docker build -t $REPO_NAME:latest . 2>&1 | tee build.log
-            if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            if [ \${PIPESTATUS[0]} -eq 0 ]; then
                 echo "Build completed successfully"
             else
                 echo "Build failed. Check build.log for details"
@@ -358,7 +358,7 @@ ENDSSH
 ENDSSH
         
         log_info "Running Docker container..."
-        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 "$SSH_USER@$SERVER_IP" bash << 'ENDSSH' || error_exit "Failed to run Docker container" 64
+        ssh -i "$SSH_KEY_PATH" -o ServerAliveInterval=30 -o ServerAliveCountMax=120 "$SSH_USER@$SERVER_IP" bash << ENDSSH || error_exit "Failed to run Docker container" 64
             docker run -d --name $REPO_NAME --restart unless-stopped -p $APP_PORT:$APP_PORT $REPO_NAME:latest
             sleep 5
             docker ps -a --filter "name=$REPO_NAME"
